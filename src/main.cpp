@@ -1,43 +1,41 @@
 #include <Arduino.h>
 #include <driver/i2s.h>
-#include <FS.h>
-#include <SPIFFS.h>
 
-// Hardware Configuration
-#define I2S_MIC_NUM     I2S_NUM_0
-#define I2S_MIC_BCK     17 //bck
-#define I2S_MIC_WS      16
-#define I2S_MIC_DATA    15
+// Hardware Configuration (pins for I2S microphone and speaker)
+#define I2S_MIC_NUM    I2S_NUM_0
+#define I2S_MIC_BCK    17  // Bit Clock for I2S microphone
+#define I2S_MIC_WS     16  // Word Select (LR clock) for I2S microphone
+#define I2S_MIC_DATA   15  // Data in for I2S microphone
 
-#define I2S_SPK_NUM     I2S_NUM_1
-#define I2S_SPK_BCK     42 //bck
-#define I2S_SPK_WS      41 //lrc
-#define I2S_SPK_DATA    40 //din
+#define I2S_SPK_NUM    I2S_NUM_1
+#define I2S_SPK_BCK    42  // Bit Clock for I2S speaker
+#define I2S_SPK_WS     41  // Word Select (LR clock) for I2S speaker
+#define I2S_SPK_DATA   40  // Data out for I2S speaker
 
-#define BUTTON_REC      4
-#define BUTTON_PLAY     5
-#define LED_PIN         2
+#define BUTTON_REC     4   // GPIO for Record button (active LOW)
+#define BUTTON_PLAY    5   // GPIO for Play button (active LOW)
+#define LED_PIN        2   // On-board LED for status
 
 // Audio Settings
-#define SAMPLE_RATE     16000 
-#define BUFFER_SIZE     1024
-#define RECORD_SECONDS  2
+#define SAMPLE_RATE      16000                   // 16 kHz sample rate
+#define BUFFER_SIZE      1024                    // I2S read/write buffer chunk size (in samples)
+#define RECORD_SECONDS   20                      // Record 10 seconds of audio
 #define SAMPLES_TO_RECORD (SAMPLE_RATE * RECORD_SECONDS)
 
 // Global Variables
-int16_t audioBuffer[BUFFER_SIZE];
+int16_t *audioBuffer = NULL;                     // Recording buffer (allocated in PSRAM if available)
+size_t recordedSamples = 0;                      // Number of samples actually recorded in the buffer
 bool isRecording = false;
-bool isPlaying = false;
+bool isPlaying   = false;
 
 void setupI2SMic() {
-    // Simple uninstall - will fail silently if not installed
+    // Uninstall any existing I2S driver for microphone (to reset configuration)
     i2s_driver_uninstall(I2S_MIC_NUM);
-
     i2s_config_t i2s_config = {
-        .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX),
+        .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_RX),   // Master receive mode (microphone)
         .sample_rate = SAMPLE_RATE,
         .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
-        .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
+        .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,           // Mono input
         .communication_format = I2S_COMM_FORMAT_STAND_I2S,
         .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
         .dma_buf_count = 8,
@@ -46,27 +44,24 @@ void setupI2SMic() {
         .tx_desc_auto_clear = false,
         .fixed_mclk = 0
     };
-
     i2s_pin_config_t pin_config = {
         .bck_io_num = I2S_MIC_BCK,
-        .ws_io_num = I2S_MIC_WS,
-        .data_out_num = I2S_PIN_NO_CHANGE,
-        .data_in_num = I2S_MIC_DATA
+        .ws_io_num  = I2S_MIC_WS,
+        .data_out_num = I2S_PIN_NO_CHANGE,  // Not used for RX
+        .data_in_num  = I2S_MIC_DATA
     };
-
     i2s_driver_install(I2S_MIC_NUM, &i2s_config, 0, NULL);
     i2s_set_pin(I2S_MIC_NUM, &pin_config);
 }
 
 void setupI2SSpeaker() {
-    // Simple uninstall - will fail silently if not installed
+    // Uninstall any existing I2S driver for speaker (to reset configuration)
     i2s_driver_uninstall(I2S_SPK_NUM);
-
     i2s_config_t i2s_config = {
-        .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX),
+        .mode = (i2s_mode_t)(I2S_MODE_MASTER | I2S_MODE_TX),   // Master transmit mode (speaker)
         .sample_rate = SAMPLE_RATE,
         .bits_per_sample = I2S_BITS_PER_SAMPLE_16BIT,
-        .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,
+        .channel_format = I2S_CHANNEL_FMT_ONLY_LEFT,           // Mono output
         .communication_format = I2S_COMM_FORMAT_STAND_I2S,
         .intr_alloc_flags = ESP_INTR_FLAG_LEVEL1,
         .dma_buf_count = 8,
@@ -75,182 +70,140 @@ void setupI2SSpeaker() {
         .tx_desc_auto_clear = false,
         .fixed_mclk = 0
     };
-
     i2s_pin_config_t pin_config = {
         .bck_io_num = I2S_SPK_BCK,
-        .ws_io_num = I2S_SPK_WS,
+        .ws_io_num  = I2S_SPK_WS,
         .data_out_num = I2S_SPK_DATA,
-        .data_in_num = I2S_PIN_NO_CHANGE
+        .data_in_num  = I2S_PIN_NO_CHANGE   // Not used for TX
     };
-
     i2s_driver_install(I2S_SPK_NUM, &i2s_config, 0, NULL);
     i2s_set_pin(I2S_SPK_NUM, &pin_config);
 }
 
 void setup() {
     Serial.begin(115200);
-   // while(!Serial); // Wait for serial connection
-    
-    // Initialize SPIFFS
-    if(!SPIFFS.begin(true)) {
-        Serial.println("SPIFFS Mount Failed");
-        while(1);
+    // while(!Serial); // (Optional) wait for serial connection
+
+    // Allocate recording buffer (prefer PSRAM for large buffer)
+    size_t bufferSizeBytes = SAMPLES_TO_RECORD * sizeof(int16_t);
+    if (psramFound()) {
+        audioBuffer = (int16_t*) ps_malloc(bufferSizeBytes);
+    } else {
+        audioBuffer = (int16_t*) malloc(bufferSizeBytes);
+    }
+    if (!audioBuffer) {
+        Serial.println("Failed to allocate recording buffer");
+        while (1) { /* Halt if allocation fails */ }
     }
 
-   //  if (SPIFFS.exists("/recording.raw")) {
-   //     SPIFFS.remove("/recording.raw");
-   //     Serial.println("Old recording deleted at startup.");
-   // } 
-    setupI2SSpeaker();
-
-            // Play audio with modifications (2x, with gain and speed control)
-            if(SPIFFS.exists("/recording.raw")) {
-                File file = SPIFFS.open("/recording.raw", FILE_READ);
-                if(file) {
-                    // Play twice
-                    for(int repeat = 0; repeat < 2; repeat++) {
-                        file.seek(0); // Rewind file for each repeat
-                        
-                        float gain = 10;
-                        int speedFactor = 3;
-                        int16_t tempBuffer[BUFFER_SIZE];
-                        
-                        while(file.available()) {
-                            size_t bytesRead = file.read((uint8_t*)audioBuffer, sizeof(audioBuffer));
-                            size_t numSamples = bytesRead / sizeof(int16_t);
-                            size_t tempIndex = 0;
-                            
-                            // Apply gain and speed modification
-                            for(size_t i = 0; i < numSamples; i += speedFactor) {
-                                tempBuffer[tempIndex++] = (int16_t)(audioBuffer[i] * gain);
-                            }
-                            
-                            // Write modified audio
-                            size_t bytesWritten = 0;
-                            i2s_write(I2S_SPK_NUM, tempBuffer, tempIndex * sizeof(int16_t), &bytesWritten, portMAX_DELAY);
-                        }
-                    }
-                    file.close();
-                } else {
-                    //Serial.println("Failed to open file for reading");
-                }
-            } else {
-                //Serial.println("No recording found");
-            }
-
-            // Clean up
-            i2s_driver_uninstall(I2S_SPK_NUM);
-
-    // Initialize GPIO
+    // Initialize buttons and LED
     pinMode(BUTTON_REC, INPUT_PULLUP);
     pinMode(BUTTON_PLAY, INPUT_PULLUP);
     pinMode(LED_PIN, OUTPUT);
+    digitalWrite(LED_PIN, HIGH);
+    delay(1000);
     digitalWrite(LED_PIN, LOW);
 
-    //Serial.println("System Ready");
+    // Serial.println("System Ready");  // Uncomment for debug indication
 }
 
 void loop() {
     static unsigned long lastDebounceTime = 0;
-    const unsigned long debounceDelay = 50;
+    const unsigned long debounceDelay = 100;  // Debounce delay in milliseconds
 
-    // Record Button Pressed
-if(digitalRead(BUTTON_REC) == LOW && !isRecording && !isPlaying) {
-    if(millis() - lastDebounceTime > debounceDelay) {
-        lastDebounceTime = millis();
-        isRecording = true;
-        
-        // Setup I2S for recording
-        setupI2SMic();
+    static int recbuttonenable = 1;   // 1 = allow new recording, 0 = must wait for release
 
-        //Serial.println("Recording started...");
-        digitalWrite(LED_PIN, HIGH);
-
-        // Open file in write mode (this will truncate existing file)
-        File file = SPIFFS.open("/recording.raw", FILE_WRITE);
-        if(file) {
-            //Simply opening in write mode truncates the file
-            // Now record new audio
-            size_t totalBytes = 0;
-            while(totalBytes < SAMPLES_TO_RECORD * sizeof(int16_t)) {
-                size_t bytesRead = 0;
-                i2s_read(I2S_MIC_NUM, audioBuffer, sizeof(audioBuffer), &bytesRead, portMAX_DELAY);
-                if(bytesRead > 0) {
-                    size_t bytesWritten = file.write((uint8_t*)audioBuffer, bytesRead);
-                    if(bytesWritten != bytesRead) {
-                        Serial.println("Write error during recording");
-                        break;
-                    }
-                    totalBytes += bytesWritten;
-                }
-            }
-            
-            file.close();
-            //Serial.printf("Recording complete. Saved %d bytes\n", totalBytes);
-        } else {
-            //Serial.println("Failed to open file for writing");
-        }
-
-        // Clean up
-        i2s_driver_uninstall(I2S_MIC_NUM);
-        digitalWrite(LED_PIN, LOW);
-        isRecording = false;
+    // --- Record Button Release detection: re-arm for next record ---
+    if (digitalRead(BUTTON_REC) == HIGH && !isRecording) {
+        recbuttonenable = 1;
+        // Serial.println("Record button released, re-armed for next recording");
     }
-} 
-// Play Button Pressed
-    if(digitalRead(BUTTON_PLAY) == LOW && !isPlaying && !isRecording) {
-        if(millis() - lastDebounceTime > debounceDelay) {
+
+    // --- Record Button Pressed and armed ---
+    if (digitalRead(BUTTON_REC) == LOW && !isRecording && !isPlaying && recbuttonenable == 1) {
+        if (millis() - lastDebounceTime > debounceDelay) {
+            lastDebounceTime = millis();
+            isRecording = true;
+            setupI2SMic();                     // Configure I2S for microphone input
+            recbuttonenable = 0;               // Block further recordings until released
+
+            // Record audio samples into the buffer for the specified duration
+            size_t totalBytes = 0;
+            unsigned long recStart = millis();
+            digitalWrite(LED_PIN, HIGH);       // Turn on LED to indicate recording
+
+            while (totalBytes < SAMPLES_TO_RECORD * sizeof(int16_t) && digitalRead(BUTTON_REC) == LOW) {
+                size_t bytesRead = 0;
+                size_t bytesToRead = BUFFER_SIZE * sizeof(int16_t);
+                if ((SAMPLES_TO_RECORD * sizeof(int16_t) - totalBytes) < bytesToRead) {
+                    bytesToRead = (SAMPLES_TO_RECORD * sizeof(int16_t)) - totalBytes;
+                }
+                i2s_read(I2S_MIC_NUM, (uint8_t*)audioBuffer + totalBytes, bytesToRead, &bytesRead, portMAX_DELAY);
+                if (bytesRead > 0) {
+                    totalBytes += bytesRead;
+                } else {
+                    break;
+                }
+                // Optional: Also break if max time exceeded (as backup to buffer full)
+                if (millis() - recStart > RECORD_SECONDS * 1000) break;
+            }
+            recordedSamples = totalBytes / sizeof(int16_t);  // Calculate number of samples recorded
+
+            // Stop I2S and finish recording
+            i2s_driver_uninstall(I2S_MIC_NUM);
+            digitalWrite(LED_PIN, LOW);
+            isRecording = false;
+            // Serial.println("Recording complete");  // Debug log (optional)
+        }
+    }
+
+    // --- Play Button Pressed ---
+    if (digitalRead(BUTTON_PLAY) == LOW && !isPlaying && !isRecording) {
+        if (millis() - lastDebounceTime > debounceDelay) {
             lastDebounceTime = millis();
             isPlaying = true;
-            //Serial.println("Playback started...");
-            //digitalWrite(LED_PIN, HIGH);
+            setupI2SSpeaker();  // Configure I2S for speaker output
 
-            // Setup I2S for playback
-            setupI2SSpeaker();
-
-            // Play audio with modifications (2x, with gain and speed control)
-            if(SPIFFS.exists("/recording.raw")) {
-                File file = SPIFFS.open("/recording.raw", FILE_READ);
-                if(file) {
-                    // Play twice
-                    for(int repeat = 0; repeat < 3; repeat++) {
-                        file.seek(0); // Rewind file for each repeat
-                        
-                        float gain = 5;
-                        int speedFactor = 3;
-                        int16_t tempBuffer[BUFFER_SIZE];
-                        
-                        while(file.available()) {
-                            size_t bytesRead = file.read((uint8_t*)audioBuffer, sizeof(audioBuffer));
-                            size_t numSamples = bytesRead / sizeof(int16_t);
-                            size_t tempIndex = 0;
-                            
-                            // Apply gain and speed modification
-                            for(size_t i = 0; i < numSamples; i += speedFactor) {
-                                tempBuffer[tempIndex++] = (int16_t)(audioBuffer[i] * gain);
-                            }
-                            
-                            // Write modified audio
-                            size_t bytesWritten = 0;
-                            i2s_write(I2S_SPK_NUM, tempBuffer, tempIndex * sizeof(int16_t), &bytesWritten, portMAX_DELAY);
+            // Play audio from the buffer with gain and speed modifications
+         if (recordedSamples > 0) {
+                float gain = 5.0f;
+                int speedFactor = 3;
+                int16_t tempBuffer[BUFFER_SIZE];
+                const size_t nSamplesToPlay = recordedSamples;
+                for (int repeat = 0; repeat < 2; repeat++) {
+                    Serial.print("Playback repeat "); Serial.println(repeat+1);
+                    size_t offset = 0;
+                    while (offset < nSamplesToPlay) {
+                        size_t chunkSamples = BUFFER_SIZE;
+                        if (offset + chunkSamples > nSamplesToPlay) {
+                            chunkSamples = nSamplesToPlay - offset;
                         }
-                        
+                        size_t tempIndex = 0;
+                        for (size_t i = 0; i < chunkSamples; i += speedFactor) {
+                            long amplified = (long)audioBuffer[offset + i] * (long)gain;
+                            if (amplified > 32767) amplified = 32767;
+                            if (amplified < -32768) amplified = -32768;
+                            tempBuffer[tempIndex++] = (int16_t)amplified;
+                        }
+                        if (tempIndex == 0 && chunkSamples > 0) {
+                            long amplified = (long)audioBuffer[offset + chunkSamples - 1] * (long)gain;
+                            if (amplified > 32767) amplified = 32767;
+                            if (amplified < -32768) amplified = -32768;
+                            tempBuffer[tempIndex++] = (int16_t)amplified;
+                        }
+                        size_t bytesWritten = 0;
+                        i2s_write(I2S_SPK_NUM, (const char*)tempBuffer, tempIndex * sizeof(int16_t), &bytesWritten, portMAX_DELAY);
+                        offset += chunkSamples;
                     }
-                    file.close();
-                } else {
-                    //Serial.println("Failed to open file for reading");
+                    Serial.println("End of repeat.");
                 }
-            } else {
-                //Serial.println("No recording found");
             }
 
-            // Clean up
+
             i2s_driver_uninstall(I2S_SPK_NUM);
-            //digitalWrite(LED_PIN, LOW);
             isPlaying = false;
-            //Serial.println("Playback complete");
         }
     }
 
-    delay(10); // Small delay to reduce CPU usage
+    delay(10);  // Small delay to debounce and reduce CPU usage
 }

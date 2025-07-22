@@ -1,5 +1,3 @@
-this branch is under development with the goal to use the PSRAM on the S3 chip to record longer samples
-
 # Voice_to_chirp
 Educational DIY electronics project that samples a human voice and plays it back at higher speed, making it resemble a bird call. 
 It’s designed for kids to build and enjoy while discovering how electronics and sound work together.
@@ -11,7 +9,7 @@ Upload the code to your board (ESP32S3 - Lolin S3 Pro).
 Have fun chirping!
 
 ## Functionality
-Right button: RECORD.
+Right button: RECORD. (keep pressed while recording)
 Left button: PLAYBACK.
 
 When the record button is pressed the LED should turn on.
