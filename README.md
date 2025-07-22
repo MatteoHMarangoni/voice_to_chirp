@@ -12,12 +12,13 @@ Have fun chirping!
 Right button: RECORD.
 Left button: PLAYBACK.
 
-The voice to chirp is achieved by speeding up the sample with a factor 3 and playing it twice in a row.
+When the record button is pressed the LED should turn on.
+The playback speeds up the recording by a factor of 3× and plays it twice in a row
 
 ## Hardware:
 We use the ESP32S3 Lolin S3 Pro microcontroller and a few simple components:
 
-** Total list of components: **
+**Total list of components:**
 * INMP441 microphone
 * MAX98357A amplifier
 * LED
@@ -25,6 +26,35 @@ We use the ESP32S3 Lolin S3 Pro microcontroller and a few simple components:
 * 2x push buttons
 * Jumper wires
 
+**Connections:**
+Lolin to amplifier:
+-PIN 40 with DIN
+-PIN 41 with LRC
+-PIN 42 with BCLK
+-GND breadboard to GND
+-PIN VIN to VIN 
+
+Lolin to microphone:
+-PIN 15 with SD
+-PIN 16 with WS
+-PIN 17 wiht SCK
+-GND breadboard to GND
+-plus breadboard to VDD
+
+LED:
+-It's long leg to PIN 2
+-It's short leg to the resistor 
+
+Resistor to the GND of the breadboard
+
+Buttons:
+-both to GND of the breadbaord
+-left button to PIN 4
+-right button to PIN 5
+
+
 ## Schematics
 This is the full circuit diagram. 
 ![Circuit Schematic](Images/Afbeelding4.png)
+
+This project was created by [Noor van Keulen](https://github.com/NvKeulen) as part of an internship.
