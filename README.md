@@ -1,3 +1,5 @@
+this branch is under development with the goal to use the PSRAM on the S3 chip to record longer samples
+
 # Voice_to_chirp
 Educational DIY electronics project that samples a human voice and plays it back at higher speed, making it resemble a bird call. 
 It’s designed for kids to build and enjoy while discovering how electronics and sound work together.
