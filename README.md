@@ -16,9 +16,10 @@ When the record button is pressed the LED should turn on.
 The playback speeds up the recording by a factor of 3 and plays it twice in a row.
 
 ## Hardware
-We use the ESP32S3 Lolin S3 Pro microcontroller and a few simple components:
+We use the ESP32-S3 Lolin S3 Pro microcontroller and a few additional components:
 
-**Total list of components:**
+** list of components:**
+* Lolin S3 Pro
 * INMP441 microphone
 * MAX98357A amplifier
 * LED
@@ -26,7 +27,7 @@ We use the ESP32S3 Lolin S3 Pro microcontroller and a few simple components:
 * 2x push buttons
 * Jumper wires
 
-**Connections:**
+**Connections from the MCU to:**
 
 Amplifier:
 * PIN 40 with DIN
