@@ -1,6 +1,5 @@
-# voice_to_chirp
+# Voice_to_chirp
 Educational DIY electronics project that samples a human voice and plays it back at higher speed, making it resemble a bird call. 
-This fun and simple project lets you record your voice and play it back at a higher speed, making it sound like a bird call. 
 It’s designed for kids to build and enjoy while discovering how electronics and sound work together.
 
 ## Usage
@@ -18,7 +17,7 @@ The voice to chirp is achieved by speeding up the sample with a factor 3 and pla
 ## Hardware:
 We use the ESP32S3 Lolin S3 Pro microcontroller and a few simple components:
 
-## Total list of components:
+** Total list of components: **
 * INMP441 microphone
 * MAX98357A amplifier
 * LED
@@ -28,4 +27,4 @@ We use the ESP32S3 Lolin S3 Pro microcontroller and a few simple components:
 
 ## Schematics
 This is the full circuit diagram. 
-![Circuit Schematic](/Users/noorvankeulen/voice_to_chirp/Images/Afbeelding4.png)
+![Circuit Schematic](Images/Afbeelding4.png)
