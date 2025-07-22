@@ -62,4 +62,4 @@ Sometimes the board needs to be manually booted the first time to establish a se
 This is the full circuit diagram. 
 ![Circuit Schematic](Images/Afbeelding4.png)
 
-This project was created by [Noor van Keulen](https://github.com/NvKeulen) as part of an internship.
+This project was developed by [Noor van Keulen](https://github.com/NvKeulen) in collaboration with Matteo Marangoni and [iii's education](https://instrumentinventors.org/about/education-kids/) team as part of the project [Chorusing Symbionts](https://matteomarangoni.com/Chorusing-Symbionts-page). 
