@@ -171,7 +171,7 @@ void loop() {
                 int16_t tempBuffer[BUFFER_SIZE];
                 const size_t nSamplesToPlay = recordedSamples;
                 for (int repeat = 0; repeat < 2; repeat++) {
-                    Serial.print("Playback repeat "); Serial.println(repeat+1);
+                  //  Serial.print("Playback repeat "); Serial.println(repeat+1);
                     size_t offset = 0;
                     while (offset < nSamplesToPlay) {
                         size_t chunkSamples = BUFFER_SIZE;
@@ -195,7 +195,7 @@ void loop() {
                         i2s_write(I2S_SPK_NUM, (const char*)tempBuffer, tempIndex * sizeof(int16_t), &bytesWritten, portMAX_DELAY);
                         offset += chunkSamples;
                     }
-                    Serial.println("End of repeat.");
+                  //  Serial.println("End of repeat.");
                 }
             }
 
