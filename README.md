@@ -15,7 +15,7 @@ Left button: PLAYBACK.
 When the record button is pressed the LED should turn on.
 The playback speeds up the recording by a factor of 3 and plays it twice in a row.
 
-## Hardware:
+## Hardware
 We use the ESP32S3 Lolin S3 Pro microcontroller and a few simple components:
 
 **Total list of components:**
@@ -28,14 +28,14 @@ We use the ESP32S3 Lolin S3 Pro microcontroller and a few simple components:
 
 **Connections:**
 
-Lolin to amplifier:
+Amplifier:
 * PIN 40 with DIN
 * PIN 41 with LRC
 * PIN 42 with BCLK
 * GND breadboard to GND
 * PIN VIN to VIN 
 
-Lolin to microphone:
+Microphone:
 * PIN 15 with SD
 * PIN 16 with WS
 * PIN 17 wiht SCK
@@ -55,7 +55,7 @@ Buttons:
 ## Trouble shooting
 Check if everything is connected the right way. Don't forget to connect the battery.
 You can always uncomment a serialprint to monitor what is happening.
-If it is the first time using a lolin S3 PRO you might need to boot the board first before it has a serial connection to your computer.
+Sometimes the board needs to be manually booted the first time to establish a serial connection.
 
 ## Schematics
 This is the full circuit diagram. 
