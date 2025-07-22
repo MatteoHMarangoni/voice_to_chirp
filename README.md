@@ -13,7 +13,7 @@ Right button: RECORD.
 Left button: PLAYBACK.
 
 When the record button is pressed the LED should turn on.
-The playback speeds up the recording by a factor of 3× and plays it twice in a row
+The playback speeds up the recording by a factor of 3× and plays it twice in a row.
 
 ## Hardware:
 We use the ESP32S3 Lolin S3 Pro microcontroller and a few simple components:
@@ -28,29 +28,28 @@ We use the ESP32S3 Lolin S3 Pro microcontroller and a few simple components:
 
 **Connections:**
 Lolin to amplifier:
--PIN 40 with DIN
--PIN 41 with LRC
--PIN 42 with BCLK
--GND breadboard to GND
--PIN VIN to VIN 
+* PIN 40 with DIN
+* PIN 41 with LRC
+* PIN 42 with BCLK
+* GND breadboard to GND
+* PIN VIN to VIN 
 
 Lolin to microphone:
--PIN 15 with SD
--PIN 16 with WS
--PIN 17 wiht SCK
--GND breadboard to GND
--plus breadboard to VDD
+* PIN 15 with SD
+* PIN 16 with WS
+* PIN 17 wiht SCK
+* GND breadboard to GND
+* plus of breadboard to VDD
 
 LED:
--It's long leg to PIN 2
--It's short leg to the resistor 
-
-Resistor to the GND of the breadboard
+* It's long leg to PIN 2
+* It's short leg to the resistor 
+* Resistor to the GND of the breadboard
 
 Buttons:
--both to GND of the breadbaord
--left button to PIN 4
--right button to PIN 5
+* Both to GND of the breadbaord
+* Left button to PIN 4
+* Right button to PIN 5
 
 
 ## Schematics
